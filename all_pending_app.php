@@ -22,39 +22,15 @@ if (isset($_GET['appid']) && isset($_GET['opr'])) {
     // Rest of the code...
 }
 
-// Check if the student has been cleared by the library section
-$stmt_library = $conn->prepare("SELECT library FROM app_status WHERE appid = ? LIMIT 1");
-$stmt_library->execute(array($_GET['appid']));
-$library_cleared = $stmt_library->fetchColumn();
 
-if ($library_cleared != "1") {
-    $error_message = "Library clearance is pending. Other sections have to wait for library clearance.";
-    echo "<script>alert('$error_message');</script>";
-}
 
-// Update
-if (isset($_GET['appid']) && isset($_GET['opr'])) {
-    $status = "0";
-    $app_id = strip_tags(htmlspecialchars_decode($_GET['appid']));
-
-    // Only allow approval, disapproval, or rejection if the clearance section is not "Library"
-    if ($_SESSION['clearance_section'] != "Library") {
-        if ($_GET['opr'] == "approve") {
-            $status = "1";
-        } elseif ($_GET['opr'] == "disapprove") {
-            $status = "0";
-        } elseif ($_GET['opr'] == "reject") {
-            $status = "2";
-        }
-    } else {
-        $error_message = "Insufficient clearance. Library clearance is required before proceeding.";
-        echo "<script>alert('$error_message');</script>";
-    }
-
-    $stmt_ina = "";
-
-    // Prepare and execute the update statement based on the clearance section
-    switch ($_SESSION['clearance_section']) {
+function update_database($app_id, $app_status){
+$stmt_ina = "";
+global $conn;
+ switch ($_SESSION['clearance_section']) {
+        case "Library":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET library = ?, storeDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
         case "Bursary":
             $stmt_ina = $conn->prepare("UPDATE app_status SET store = ?, storeDate = NOW() WHERE appid = ? LIMIT 1");
             break;
@@ -82,7 +58,63 @@ if (isset($_GET['appid']) && isset($_GET['opr'])) {
             break;
     }
 
-    $stmt_ina->execute(array($status, $app_id));
+    // Prepare and execute the update statement based on the clearance section
+
+    $stmt_ina->execute(array($app_status, $app_id));    
+
+}
+
+function status_code(){
+// convert the status from text to number
+$status = "";
+switch($_GET['opr']){
+	case "approve": 
+		$status = "1";
+		break;
+	case "disapprove":
+		$status = "0";
+		break;
+	case "reject":
+	 $status = "2";
+	 break;
+}
+
+return $status;
+
+}
+
+
+
+if (isset($_GET['appid']) && isset($_GET['opr'])) {
+
+// Check if the student has been cleared by the library section
+$stmt_library = $conn->prepare("SELECT library FROM app_status WHERE appid = ? LIMIT 1");
+$stmt_library->execute(array($_GET['appid']));
+$library_cleared = $stmt_library->fetchColumn();
+
+$clearan_section = $_SESSION['clearance_section'];
+$status = "0";
+$app_id = strip_tags(htmlspecialchars_decode($_GET['appid']));
+$stmt_ina = "";
+	
+	if($clearan_section == "Library"){
+		update_database($app_id, status_code());
+
+	}else{
+		if($library_cleared != "0"){
+
+			// Only allow approval, disapproval, or rejection if the clearance section is not "Library"
+			update_database($app_id, status_code());
+
+		}else{
+
+			// don't process request because library has no been cleared
+			$error_message = "Insufficient clearance. Library clearance is required before proceeding.";
+        	echo "<script>alert('$error_message');</script>";
+		}
+
+	}
+
 }
 
 $my_file_two = $stmt_ina = $stmt_inaa = "";
@@ -156,8 +188,10 @@ $my_file_two = $stmt_ina = $stmt_inaa = "";
 					if($_SESSION['clearance_section'] =="Faculty"){
 						$stmt_ina = $conn->prepare("SELECT * FROM app_status INNER JOIN student_info on  app_status.appid = student_info.sappid where student_info.sfaculty =?  and  app_status.faculty =?");
 						$stmt_inaa = $conn->prepare("SELECT * FROM app_status INNER JOIN student_info on  app_status.appid = student_info.sappid where student_info.sfaculty =?  and  app_status.faculty =?");
+
 						$stmt_ina->execute(array($_SESSION['staff_faculty'],"0"));
 						$stmt_inaa->execute(array($_SESSION['staff_faculty'],"0"));
+						
 					}
 					if($_SESSION['clearance_section'] =="Department"){
 						$stmt_ina = $conn->prepare("SELECT * FROM app_status INNER JOIN student_info on  app_status.appid = student_info.sappid where student_info.sdept =?  and  app_status.department =?");

@@ -12,48 +12,99 @@ if($_GET['m_'] != $_SESSION['page_authy'] || $_GET['l_w'] != $sec ){
 	header("location index.php");
 }
 
-//update
-if(isset($_GET['appid']) && isset($_GET['opr'])){
-	$status ="0";
-	$app_id = strip_tags(htmlspecialchars_decode($_GET['appid']));
-	if($_GET['opr'] =="approve"){
-		$status = "1"; 
-	}elseif($_GET['opr'] =="disapprove"){
+
+
+function update_database($app_id, $app_status){
+$stmt_ina = "";
+global $conn;
+ switch ($_SESSION['clearance_section']) {
+        case "Library":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET library = ?, storeDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "Bursary":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET store = ?, storeDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "Hostel":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET hostel = ?, hostelDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "Sports":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET athlete = ?, athleteDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "SUG":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET sug = ?, sugDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "Security":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET security = ?, securityDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "Faculty":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET faculty = ?, facultyDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        case "Department":
+            $stmt_ina = $conn->prepare("UPDATE app_status SET department = ?, departmentDate = NOW() WHERE appid = ? LIMIT 1");
+            break;
+        default:
+            $error_message = "Invalid clearance section.";
+            echo "<script>alert('$error_message');</script>";
+            break;
+    }
+
+    // Prepare and execute the update statement based on the clearance section
+
+    $stmt_ina->execute(array($app_status, $app_id));    
+
+}
+
+function status_code(){
+// convert the status from text to number
+$status = "";
+switch($_GET['opr']){
+	case "approve": 
+		$status = "1";
+		break;
+	case "disapprove":
 		$status = "0";
-	}elseif($_GET['opr'] =="reject"){
-		$status = "2";
+		break;
+	case "reject":
+	 $status = "2";
+	 break;
+}
+
+return $status;
+
+}
+
+
+
+if (isset($_GET['appid']) && isset($_GET['opr'])) {
+
+// Check if the student has been cleared by the library section
+$stmt_library = $conn->prepare("SELECT library FROM app_status WHERE appid = ? LIMIT 1");
+$stmt_library->execute(array($_GET['appid']));
+$library_cleared = $stmt_library->fetchColumn();
+
+$clearan_section = $_SESSION['clearance_section'];
+$status = "0";
+$app_id = strip_tags(htmlspecialchars_decode($_GET['appid']));
+$stmt_ina = "";
+	
+	if($clearan_section == "Library"){
+		update_database($app_id, status_code());
+
+	}else{
+		if($library_cleared != "0"){
+
+			// Only allow approval, disapproval, or rejection if the clearance section is not "Library"
+			update_database($app_id, status_code());
+
+		}else{
+
+			// don't process request because library has no been cleared
+			$error_message = "Insufficient clearance. Library clearance is required before proceeding.";
+        	echo "<script>alert('$error_message');</script>";
+		}
+
 	}
-	$stmt_ina="";
-	if($_SESSION['clearance_section'] =="Library"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET library = ?, libraryDate = now() where appid =? limit 1");
-	}
-	//store
-	if($_SESSION['clearance_section'] =="Bursary"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET store = ?, storeDate = now() where appid =? limit 1");
-	}
-	//hostel
-	if($_SESSION['clearance_section'] =="Hostel"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET hostel = ?, hostelDate = now() where appid =? limit 1");
-	}
-	//athlete
-	if($_SESSION['clearance_section'] =="Sports"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET athlete = ?, athleteDate = now() where appid =? limit 1");
-	}
-	//sug
-	if($_SESSION['clearance_section'] =="SUG"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET sug = ?, sugDate = now() where appid =? limit 1");
-	}
-	//security
-	if($_SESSION['clearance_section'] =="Security"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET security = ?, securityDate = now() where appid =? limit 1");
-	}
-	if($_SESSION['clearance_section'] =="Faculty"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET faculty = ? , facultyDate = now()where appid =? limit 1");
-	}
-	if($_SESSION['clearance_section'] =="Department"){
-		$stmt_ina = $conn->prepare("UPDATE app_status SET department = ?, departmentDate = now()  where appid =? limit 1");
-	}
-	$stmt_ina->execute(array($status,$app_id));
+
 }
 
 ?>
